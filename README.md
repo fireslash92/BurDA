@@ -1,5 +1,5 @@
 # Buraimi Digital Ambassadors
-Arabic RTL performance dashboard for the Governor's Office. The static GitHub Pages entry offers an isolated in-memory demo. The office login (?office) uses Firebase Google authentication, a role-checked Cloud Function, Firestore and private evidence files in Cloud Storage.
+Arabic RTL performance dashboard for the Governor's Office. The root opens a staff login. The dashboard requires a verified Firebase email/password account and office membership. It uses a role-checked Cloud Function, Firestore and private evidence files in Cloud Storage.
 
 See [دليل تفعيل Firebase](START-HERE-AR.md) before using the office register. Publishing GitHub files does not deploy Firebase services. The Firebase web configuration is public; the backend requires verified identities and explicit membership. Analytics is not initialized.
 

@@ -1,9 +1,9 @@
 # تفعيل السجل الفعلي لمكتب المحافظ
-المشروع: buraimidta. الصفحة الرئيسية تعرض بيانات تجريبية فقط. رابط ?office يفتح السجل الفعلي. لا تنتقل بيانات التجربة إلى Firebase.
+المشروع: buraimidta. الصفحة الرئيسية تتطلب تسجيل الدخول بالبريد وكلمة المرور. لا يوجد دخول ضيف.
 
-1. في Firebase Console > Authentication > Sign-in method فعّل Google واختر بريد الدعم. في Settings > Authorized domains أضف fireslash92.github.io.
+1. في Firebase Console > Authentication > Sign-in method فعّل Email/Password. في Settings > Authorized domains أضف fireslash92.github.io.
 2. أنشئ قاعدة Cloud Firestore الافتراضية في وضع الإنتاج، وهيّئ Storage بالحاوية buraimidta.firebasestorage.app. اختر موقع البيانات المناسب للمكتب. تتطلب Cloud Functions وخدمة التخزين خطة تدعم الفوترة؛ راجع الخطة قبل التفعيل.
-3. في GitHub > Settings > Pages اختر main و /(root). افتح الموقع المنشور، واضغط «ابدأ بالسجل الفعلي» وسجّل دخول المدير بحساب Google. يمكن إكمال تسجيل الهوية قبل نشر الخدمة، لكن لن تُعرض بيانات. من Authentication > Users انسخ UID لذلك الحساب.
+3. أنشئ حساب المدير في Authentication > Users > Add user ببريد حقيقي وكلمة مرور، وانسخ UID. في GitHub > Settings > Pages اختر main و /(root). يستطيع المستخدم طلب رابط تأكيد البريد أو استعادة كلمة المرور من صفحة الدخول.
 4. من نسخة مستنسخة للمستودع، وباستخدام Node 22 حديث وFirebase CLI، نفّذ:
 
 ```sh
@@ -26,3 +26,4 @@ firebase deploy --only firestore:rules,storage --project buraimidta
 إذا كان المشروع يخدم تطبيقات أخرى، ادمج القواعد مع قواعده الحالية أولاً ولا تستبدلها. منع الوصول المباشر يتطلب أيضاً غياب أي قاعدة أوسع تسمح بالوصول إلى burdaOffice أو burda-evidence. الدالة فقط تقرأ وتكتب بعد التحقق من الهوية والدور. اختبر أن غير الأعضاء لا يمكنهم قراءة بيانات المكتب.
 
 6. افتح السجل الفعلي، أضف ملف سفير ثم اربطه ببريد المستخدم من إدارة المنصة. اختبر بمرفق تجريبي وحساب آخر قبل إدخال بيانات العمل. لا ترسل مفاتيح حساب خدمة.
+لكل مستخدم: أنشئ حسابه في Authentication > Users ثم أضف نفس البريد من إدارة المنصة وحدّد اسمه ودوره وملف السفير. كلمة المرور تديرها Authentication ولا تكتب في Firestore. البريد هو معرّف الدخول، والاسم للعرض.

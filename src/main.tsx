@@ -1,4 +1,4 @@
-import {auth} from "./lib/cloud";
+import {auth,type User} from "./lib/cloud";
 import React from "react";
 import {createRoot} from "react-dom/client";
 import DashboardApp from "./components/DashboardApp";
@@ -8,10 +8,19 @@ class ErrorBoundary extends React.Component<{children:React.ReactNode},{failed:b
   render(){return this.state.failed?<main className="loading-state"><h1>تعذر فتح التطبيق</h1><p>حدّث الصفحة وحاول مرة أخرى.</p><button className="btn primary" onClick={()=>location.reload()}>إعادة المحاولة</button></main>:this.props.children}
 }
 function Entry(){
- const real=new URLSearchParams(location.search).has("office");
- const [name,setName]=React.useState<string|null>(null),[ready,setReady]=React.useState(false),[msg,setMsg]=React.useState("");
- React.useEffect(()=>{if(real)auth().then(a=>a.user()).then(u=>{if(u)setName(u.displayName||"المستخدم")}).catch(()=>setMsg("تعذر تحميل خدمة تسجيل الدخول. تحقق من الشبكة وأعد المحاولة.")).finally(()=>setReady(true))},[real]);
- if(!real||name)return <DashboardApp key={name||"guest"} displayName={name||"عرض تجريبي"} guest={!real}/>;
- return <main className="loading-state"><h1>سجل مكتب المحافظ</h1><p>سجّل الدخول بحساب Google المخوّل للاطلاع على بيانات السفراء.</p><button className="btn primary" disabled={!ready} onClick={async()=>{setMsg("");try{const u=(await (await auth()).login()).user;setName(u.displayName||"المستخدم")}catch(e){setMsg("تعذر تسجيل الدخول: "+(e instanceof Error?e.message:"حاول مرة أخرى."))}}}>الدخول بحساب Google</button>{msg&&<p role="alert">{msg}</p>}<a href="./">العودة إلى العرض التجريبي</a></main>;
+ const [u,setUser]=React.useState<User|null>(null),[verified,setVerified]=React.useState(false),[ready,setReady]=React.useState(false),[msg,setMsg]=React.useState(""),[busy,setBusy]=React.useState(false);
+ const [email,setEmail]=React.useState(""),[password,setPassword]=React.useState(""),[reset,setReset]=React.useState(false);
+ function session(v:User|null){setUser(v);setVerified(!!v?.emailVerified);setPassword("");setReady(true);setMsg("");}
+ React.useEffect(()=>{let active=true,stop:(()=>void)|undefined;auth().then(a=>{if(active)stop=a.watch(session)}).catch(()=>setMsg("تعذر الاتصال بخدمة الدخول. تحقق من الشبكة ثم حدّث الصفحة."));return()=>{active=false;stop?.()}},[]);
+ async function act(fn:()=>Promise<void>){setBusy(true);setMsg("");try{await fn()}catch(e){const code=(e as {code?:string}).code;setMsg(code==="auth/too-many-requests"?"محاولات كثيرة. حاول لاحقًا.":code==="auth/network-request-failed"?"تعذر الاتصال. تحقق من الشبكة.":code==="auth/operation-not-allowed"?"طريقة الدخول غير مفعّلة. تواصل مع مدير المنصة.":"تعذر إكمال الطلب. تحقق من بيانات الدخول وحاول مرة أخرى.")}finally{setBusy(false)}}
+ if(u&&verified)return <DashboardApp key={u.uid}/>;
+ return <main className="office-login"><section className="office-card"><div className="office-brand"><img src="./favicon.svg" alt=""/><span>محافظة البريمي<br/><strong>مكتب المحافظ</strong></span></div><p className="eyebrow">سفراء التحول الرقمي</p><h1>{u?"تأكيد البريد الإلكتروني":reset?"استعادة كلمة المرور":"تسجيل الدخول"}</h1>
+ <p>{u?"أكّد بريدك قبل فتح سجل المكتب.":reset?"أدخل بريد حسابك لتصلك تعليمات استعادة كلمة المرور.":"ادخل بحسابك المخصص لمتابعة مؤشرات أداء السفراء."}</p>
+ {u?<section><p dir="ltr">{u.email}</p><button className="btn primary" disabled={busy} onClick={()=>act(async()=>{await (await auth()).verify();setMsg("أرسلنا رابط التأكيد إلى بريدك.")})}>إرسال رابط التأكيد</button><button className="btn" disabled={busy} onClick={()=>act(async()=>{const v=await (await auth()).refresh();session(v);if(!v?.emailVerified)setMsg("لم يتم تأكيد البريد بعد.")})}>أكّدت بريدي، متابعة</button><button className="btn" onClick={()=>act(async()=>{await (await auth()).logout()})}>تغيير الحساب</button></section>:
+ <form onSubmit={e=>{e.preventDefault();void act(async()=>{const a=await auth();if(reset){await a.reset(email.trim());setMsg("إذا كان البريد مسجّلًا، ستصلك تعليمات الاستعادة.")}else{await a.login(email.trim(),password);setPassword("")}})}}>
+ <label>البريد الإلكتروني<input type="email" required dir="ltr" autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)}/></label>
+ {!reset&&<label>كلمة المرور<input type="password" required dir="ltr" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)}/></label>}
+ <button className="btn primary" disabled={!ready||busy}>{busy?"جارٍ تنفيذ الطلب…":reset?"إرسال رابط الاستعادة":"دخول المنصة"}</button><button type="button" className="btn" disabled={busy} onClick={()=>{setReset(!reset);setPassword("");setMsg("")}}>{reset?"العودة لتسجيل الدخول":"نسيت كلمة المرور؟"}</button></form>}
+ {msg&&<p role="status">{msg}</p>}<small>الدخول مخصص للمستخدمين المخوّلين من مكتب المحافظ.</small></section></main>;
 }
 createRoot(document.getElementById("root")!).render(<ErrorBoundary><Entry/></ErrorBoundary>);

@@ -1,5 +1,5 @@
-type User={uid:string;displayName:string|null;getIdToken:()=>Promise<string>};
-type Auth={login:()=>Promise<{user:User}>;logout:()=>Promise<void>;user:()=>Promise<User|null>};
+export type User={emailVerified:boolean;email:string|null;uid:string;displayName:string|null;getIdToken:()=>Promise<string>};
+type Auth={watch:(fn:(u:User|null)=>void)=>()=>void;verify:()=>Promise<void>;reset:(email:string)=>Promise<void>;refresh:()=>Promise<User|null>;login:(email:string,password:string)=>Promise<{user:User}>;logout:()=>Promise<void>;user:()=>Promise<User|null>};
 export const auth=():Promise<Auth>=>import(new URL('firebase-client.js',document.baseURI).href);
 export async function office(op:string,payload:unknown={}){
  const u=await (await auth()).user();if(!u)throw new Error('سجّل الدخول أولاً.');
