@@ -86,6 +86,7 @@ lucide-react/dist/esm/icons/life-buoy.mjs:
 lucide-react/dist/esm/icons/lightbulb.mjs:
 lucide-react/dist/esm/icons/lock-keyhole.mjs:
 lucide-react/dist/esm/icons/lock-keyhole-open.mjs:
+lucide-react/dist/esm/icons/log-out.mjs:
 lucide-react/dist/esm/icons/menu.mjs:
 lucide-react/dist/esm/icons/network.mjs:
 lucide-react/dist/esm/icons/paperclip.mjs:

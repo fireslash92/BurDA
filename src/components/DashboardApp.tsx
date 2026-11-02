@@ -1,3 +1,4 @@
+import {office,auth,sendFile} from "../lib/cloud";
 import {newId} from "../lib/id";
 "use client";
 import {useState,useEffect,useRef,type ReactNode} from "react";
@@ -27,15 +28,25 @@ function Score({value}:{value:number|null}){return <span className={"score-value
 function Panel({title,subtitle,action,children,className=""}:{title:string;subtitle?:string;action?:ReactNode;children:ReactNode;className?:string}){return <section className={"panel "+className}><div className="panel-head"><div><h2>{title}</h2>{subtitle&&<p>{subtitle}</p>}</div>{action}</div>{children}</section>}
 function Empty({title,description,children}:{title:string;description:string;children?:ReactNode}){return <div className="empty"><span><ClipboardList size={32}/></span><h3>{title}</h3><p>{description}</p>{children}</div>}
 
-export default function DashboardApp({displayName}:{displayName:string}) {
-  const initial=useRef<AppState>(demoState({email:"demo@local.invalid",user_id:"demo-user",name:"عرض تجريبي",role:"admin",ambassador_id:null,created_at:"2026-11-02T00:00:00Z"}));
-  const [demoData,setDemoData]=useState<AppState|null>(initial.current),demoRef=useRef<AppState|null>(initial.current);
-  const real=initial.current,demo=true;
-  const [page,setPage]=useState<Page>("dashboard"),[periodId,setPeriodId]=useState("2026-Q4");
+export default function DashboardApp({displayName,guest=false}:{displayName:string;guest?:boolean}) {
+  const [real,setReal]=useState<AppState|null>(null),[demoData,setDemoData]=useState<AppState|null>(null),demoRef=useRef<AppState|null>(null);
+  const [demo,setDemo]=useState(guest),[page,setPage]=useState<Page>("dashboard"),[periodId,setPeriodId]=useState("2026-Q4");
   const [wilaya,setWilaya]=useState(""),[organization,setOrganization]=useState(""),[query,setQuery]=useState(""),[status,setStatus]=useState(""),[showArchived,setShowArchived]=useState(false);
   const [modal,setModal]=useState<ModalValue|null>(null),[mobileNav,setMobileNav]=useState(false),[toast,setToast]=useState<{message:string;error?:boolean}|null>(null);
-  const [error,setError]=useState(""),[loading,setLoading]=useState(false),[busy,setBusy]=useState(false);
-  async function reload() { return demoRef.current as AppState; }
+  const [error,setError]=useState(""),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
+  const firstLoad=useRef(true);
+  async function reload() {
+    if(guest){const seed=demoRef.current??demoState({name:"عرض تجريبي",email:"demo@local.invalid",user_id:"demo",role:"admin",ambassador_id:null,created_at:""});demoRef.current=seed;setDemoData(seed);setReal(seed);return seed;}
+    const res=await office("state");
+    const value=await res.json() as AppState & {error?:string};if(!res.ok)throw new Error(value.error??"تعذر تحميل البيانات.");
+    setReal(value);
+    if(firstLoad.current) {
+      const seed=demoState(value.me);demoRef.current=seed;setDemoData(seed);
+      setDemo(false);
+      firstLoad.current=false;
+    }
+    return value as AppState;
+  }
   useEffect(()=>{reload().catch(e=>setError(e.message)).finally(()=>setLoading(false))},[]);
   useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(null),6500);return()=>clearTimeout(timer)},[toast]);
   const data=demo?demoData:real;
@@ -58,15 +69,14 @@ export default function DashboardApp({displayName}:{displayName:string}) {
       const next=demoMutation(demoRef.current,v,newid);demoRef.current=next;setDemoData(next);
       return {id:v.id??(v.action==="period"?quarterPeriod(v.year,v.quarter).id:newid)};
     }
-    throw new Error("الحفظ المشترك غير متاح قبل ربط Firebase.");
+    const res=await office("action",v);
+    const value=await res.json() as {id?:string;error?:string};if(!res.ok)throw new Error(value.error??"تعذر الحفظ.");return value;
   }
-
   async function upload(file:File,id:string) {
     if(file.size>10*1024*1024)throw new Error("أقصى حجم للملف 10 ميجابايت.");
     if(demo){await requestAction({action:"file",achievement_id:id,name:file.name,mime:file.type,size:file.size});return}
-    throw new Error("رفع الملفات الفعلي غير متاح قبل ربط Firebase.");
+    await sendFile(id,file);
   }
-
   async function completed(message="تم الحفظ بنجاح.") {
     if(!demo){try{await reload()}catch{setModal(null);setToast({message:"تم الحفظ. تعذر تحديث العرض؛ اضغط تحديث البيانات.",error:true});return}}
     setModal(null);setToast({message:demo?"تم التحديث في العرض التجريبي فقط.":message});
@@ -78,9 +88,11 @@ export default function DashboardApp({displayName}:{displayName:string}) {
     finally{setBusy(false)}
   }
   function toggleDemo() {
-    setToast({message:"Firebase غير مرتبط بعد. يمكنك تجربة الواجهة؛ الحفظ المشترك وتسجيل الدخول يضافان بعد إعداد مشروع Firebase."});
+    if(guest){location.assign("?office");return;}
+    if(!real)return;
+    if(!demo&&!demoRef.current){const seed=demoState(real.me);demoRef.current=seed;setDemoData(seed)}
+    setDemo(!demo);setQuery("");setWilaya("");setOrganization("");setStatus("");setShowArchived(false);setPage("dashboard");
   }
-
   function exportCsv(detail=false) {
     if(!data||!period)return;
     const rows:unknown[][]=[[demo?"بيانات تجريبية — لا تمثل أداء فعلياً":"تقرير مؤشرات أداء سفراء التحول الرقمي"],["محافظة البريمي",period.label],["الولاية",wilaya||"الكل","الجهة",organization||"الكل"]];
@@ -96,7 +108,7 @@ export default function DashboardApp({displayName}:{displayName:string}) {
     anchor.href=url;anchor.download=(demo?"demo-":"")+"buraimi-"+period.id+(detail?"-achievements":"-performance")+".csv";anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
   function navigate(p:Page){setPage(p);setMobileNav(false);setStatus("");setQuery("")}
-  if(loading||!data)return <main className="loading-state"><span className="brand-symbol"><Network size={30}/></span><h1>{error?"تعذر فتح المنصة":"سفراء"}</h1><p>{error||"جارٍ تجهيز لوحة المتابعة..."}</p>{error?<div className="button-row"><button className="btn primary" onClick={()=>{setError("");setLoading(true);reload().catch(e=>setError(e.message)).finally(()=>setLoading(false))}}><RefreshCw size={16}/>إعادة المحاولة</button></div>:<div className="loading-bar"/>}</main>;
+  if(loading||!data)return <main className="loading-state"><span className="brand-symbol"><Network size={30}/></span><h1>{error?"تعذر فتح المنصة":"سفراء"}</h1><p>{error||"جارٍ تجهيز لوحة المتابعة..."}</p>{error?<div className="button-row"><button className="btn primary" onClick={()=>{setError("");setLoading(true);reload().catch(e=>setError(e.message)).finally(()=>setLoading(false))}}><RefreshCw size={16}/>إعادة المحاولة</button><a className="btn" href="?office" onClick={async e=>{e.preventDefault();if(!guest)await (await auth()).logout();location.assign("?office")}}>تغيير الحساب</a></div>:<div className="loading-bar"/>}</main>;
   const organizations=Array.from(new Set(data.ambassadors.map(a=>a.organization)));
   const navItems:{id:Page;title:string;icon:typeof Users;badge?:number}[]=[
     {id:"dashboard",title:"لوحة المتابعة",icon:LayoutDashboard},{id:"ambassadors",title:"السفراء",icon:Users},
@@ -110,10 +122,10 @@ export default function DashboardApp({displayName}:{displayName:string}) {
   return <>
     <div className="app-shell">
       {mobileNav&&<button className="nav-backdrop" aria-label="إغلاق القائمة" onClick={()=>setMobileNav(false)}/>}
-      <aside className={"sidebar "+(mobileNav?"open":"")}><a className="brand" href="./" aria-label="سفراء"><span className="brand-symbol"><Network size={25}/></span><div><b>سفراء</b><small>التحول الرقمي • البريمي</small></div></a><button className="icon-btn mobile-close" aria-label="إغلاق القائمة" onClick={()=>setMobileNav(false)}><X/></button><div className="sidebar-label">مساحة المتابعة</div><nav aria-label="القائمة الرئيسية">{navItems.map(({id,title,icon:Icon,badge})=><button key={id} onClick={()=>navigate(id)} className={page===id?"active":""} aria-current={page===id?"page":undefined}><Icon size={19}/><span>{title}</span>{!!badge&&<b className="nav-badge">{number(badge)}</b>}</button>)}</nav><div className="sidebar-note"><ShieldCheck size={23}/><b>إنجاز موثق. أثر واضح.</b><p>احتساب المؤشرات من السجلات المعتمدة فقط.</p><button onClick={()=>navigate("indicators")}>منهجية القياس<ChevronLeft size={14}/></button></div><div className="sidebar-bottom"><span className="live-dot"/>نسخة GitHub Pages • عرض تجريبي</div></aside>
-      <div className="workspace"><header className="topbar"><div className="topbar-start"><button className="icon-btn mobile-toggle" aria-label="فتح القائمة" onClick={()=>setMobileNav(true)}><Menu/></button><span>محافظة البريمي</span><ChevronLeft size={14}/><b>مكتب المحافظ</b></div><div className="topbar-actions"><button className={"demo-switch "+(demo?"enabled":"")} onClick={toggleDemo}><FlaskConical size={15}/>{demo?"حالة ربط Firebase":"عرض تجريبي"}</button>{reviewing&&<button className="icon-btn notification" aria-label={"مراجعات معلقة "+pending.length} onClick={()=>navigate("review")}><Bell size={20}/>{pending.length>0&&<i/>}</button>}<div className="user-info"><span className="user-avatar">{(real?.me.name??displayName)[0]}</span><div><strong>{real?.me.name??displayName}</strong><small>{ROLE_LABELS[data.me.role]}{demo?" • تجربة":""}</small></div></div></div></header>
+      <aside className={"sidebar "+(mobileNav?"open":"")}><a className="brand" href="./" aria-label="سفراء"><span className="brand-symbol"><Network size={25}/></span><div><b>سفراء</b><small>التحول الرقمي • البريمي</small></div></a><button className="icon-btn mobile-close" aria-label="إغلاق القائمة" onClick={()=>setMobileNav(false)}><X/></button><div className="sidebar-label">مساحة المتابعة</div><nav aria-label="القائمة الرئيسية">{navItems.map(({id,title,icon:Icon,badge})=><button key={id} onClick={()=>navigate(id)} className={page===id?"active":""} aria-current={page===id?"page":undefined}><Icon size={19}/><span>{title}</span>{!!badge&&<b className="nav-badge">{number(badge)}</b>}</button>)}</nav><div className="sidebar-note"><ShieldCheck size={23}/><b>إنجاز موثق. أثر واضح.</b><p>احتساب المؤشرات من السجلات المعتمدة فقط.</p><button onClick={()=>navigate("indicators")}>منهجية القياس<ChevronLeft size={14}/></button></div><div className="sidebar-bottom"><span className="live-dot"/>نسخة أولية • أكتوبر ٢٠٢٦</div></aside>
+      <div className="workspace"><header className="topbar"><div className="topbar-start"><button className="icon-btn mobile-toggle" aria-label="فتح القائمة" onClick={()=>setMobileNav(true)}><Menu/></button><span>محافظة البريمي</span><ChevronLeft size={14}/><b>مكتب المحافظ</b></div><div className="topbar-actions"><button className={"demo-switch "+(demo?"enabled":"")} onClick={toggleDemo}><FlaskConical size={15}/>{demo?"الانتقال إلى السجل الفعلي":"عرض تجريبي"}</button>{reviewing&&<button className="icon-btn notification" aria-label={"مراجعات معلقة "+pending.length} onClick={()=>navigate("review")}><Bell size={20}/>{pending.length>0&&<i/>}</button>}<div className="user-info"><span className="user-avatar">{(real?.me.name??displayName)[0]}</span><div><strong>{real?.me.name??displayName}</strong><small>{ROLE_LABELS[data.me.role]}{demo?" • تجربة":""}</small></div></div><a className="icon-btn" href="?office" onClick={async e=>{e.preventDefault();if(!guest)await (await auth()).logout();location.assign("?office")}} aria-label="تسجيل الخروج"><LogOut size={17}/></a></div></header>
       <main className="main-content">
-        {demo&&<div className="demo-banner"><FlaskConical size={18}/><div><b>أنت تستعرض بيانات تجريبية.</b> Firebase غير مرتبط. الأسماء والإنجازات للتوضيح، والتعديلات مؤقتة وتزول عند تحديث الصفحة.</div><button onClick={toggleDemo}>ربط البيانات لاحقاً<ArrowLeftIcon/></button></div>}
+        {demo&&<div className="demo-banner"><FlaskConical size={18}/><div><b>أنت تستعرض بيانات تجريبية.</b> الأسماء والإنجازات للتوضيح، والتعديلات هنا لا تحفظ في السجل الفعلي.</div><button onClick={toggleDemo}>ابدأ بالسجل الفعلي<ArrowLeftIcon/></button></div>}
         <div className="page-heading"><div><div className="eyebrow">سفراء التحول الرقمي</div><h1>{titles[page].title}</h1><p>{titles[page].description}</p></div><div className="button-row">{page==="ambassadors"&&managing&&<button className="btn primary" onClick={()=>setModal({type:"ambassador"})}><Plus size={17}/>إضافة سفير</button>}{(page==="dashboard"||page==="achievements")&&(managing||data.me.role==="ambassador")&&<button className="btn primary" disabled={!!period?.locked||!data.ambassadors.some(a=>a.active&&canWriteFor(data.me,a.id))} onClick={()=>setModal({type:"achievement"})}><Plus size={17}/>تسجيل إنجاز</button>}{page==="reports"&&<><button className="btn" onClick={()=>exportCsv()}><Download size={16}/>Excel ‏(CSV)</button><button className="btn primary" onClick={()=>window.print()}><Printer size={16}/>تقرير PDF / طباعة</button></>}</div></div>
         <div className="filter-bar"><label className="period-filter"><span><Clock3 size={15}/>فترة الرصد</span><select value={periodId} onChange={e=>setPeriodId(e.target.value)} aria-label="فترة الرصد">{data.periods.map(p=><option key={p.id} value={p.id}>{p.label}{p.locked?" — مغلقة":""}</option>)}</select></label><div className="filter-divider"/><label><span>الولاية</span><select value={wilaya} onChange={e=>{setWilaya(e.target.value);setOrganization("")}}><option value="">جميع الولايات</option>{["البريمي","محضة","السنينة"].map(w=><option key={w}>{w}</option>)}</select></label><label className="organization-filter"><span>الجهة</span><select value={organization} onChange={e=>setOrganization(e.target.value)}><option value="">جميع الجهات</option>{organizations.map(o=><option key={o}>{o}</option>)}</select></label><div className="filter-end"><span className={"period-status "+(period?.locked?"locked":"")}><span className="live-dot"/>{period?.locked?"فترة مغلقة":"الرصد مفتوح"}</span><button className="icon-btn" disabled={busy} aria-label="تحديث البيانات" onClick={async()=>{if(demo){setToast({message:"العرض التجريبي محدث."});return}setBusy(true);try{await reload();setToast({message:"تم تحديث البيانات."})}catch(e){setToast({message:e instanceof Error?e.message:"تعذر التحديث.",error:true})}finally{setBusy(false)}}}><RefreshCw size={16} className={busy?"spinning":""}/></button></div></div>
         {page==="dashboard"&&<>
@@ -139,7 +151,7 @@ export default function DashboardApp({displayName}:{displayName:string}) {
           <Panel title="الإنجازات المعتمدة">{recordCards(approved)}</Panel>
         </>}
         {page==="settings"&&managing&&<>
-          <Panel title="المستخدمون والصلاحيات" subtitle="معاينة المستخدمين والأدوار المقترحة؛ الدخول الفعلي غير مفعّل." action={<button className="btn primary small" onClick={()=>setModal({type:"member"})}><Plus size={15}/>إضافة مستخدم</button>}><div className="info-banner inline-info"><ShieldCheck size={18}/><p>المستخدمون والأدوار في هذه النسخة للتجربة فقط. تسجيل الدخول والصلاحيات الفعلية والحفظ المشترك تضاف عند ربط Firebase.</p></div><div className="table-scroll"><table><thead><tr><th>المستخدم</th><th>الدور</th><th>ملف السفير</th><th>الإجراءات</th></tr></thead><tbody>{data.members.map(m=><tr key={m.email}><td><b>{m.name}</b><small dir="ltr">{m.email}</small></td><td><span className="tag neutral">{ROLE_LABELS[m.role]}</span></td><td>{data.ambassadors.find(a=>a.id===m.ambassador_id)?.name??"—"}</td><td>{m.user_id!==real?.me.user_id&&<div className="button-row"><button className="icon-btn" aria-label={"تعديل صلاحية "+m.name} onClick={()=>setModal({type:"member",item:m})}><Pencil size={15}/></button><button className="icon-btn danger" aria-label={"إزالة صلاحية "+m.name} disabled={busy} onClick={()=>{if(window.confirm("إزالة صلاحية "+m.name+" من التطبيق؟"))quickAction({action:"removeMember",email:m.email},"تمت إزالة الصلاحية.")}}><X size={16}/></button></div>}</td></tr>)}</tbody></table>{!data.members.length&&<p className="table-note">المستخدمون الحقيقيون يظهرون في السجل الفعلي.</p>}</div></Panel>
+          <Panel title="المستخدمون والصلاحيات" subtitle="الدخول عبر حساب Google، والصلاحيات حسب البريد الإلكتروني." action={<button className="btn primary small" onClick={()=>setModal({type:"member"})}><Plus size={15}/>إضافة مستخدم</button>}><div className="info-banner inline-info"><ShieldCheck size={18}/><p>إضافة صلاحية هنا لا ترسل دعوة ولا تفتح الرابط للآخرين. النسخة الحالية خاصة بك؛ يلزم منح الوصول من إعدادات مشاركة الموقع قبل دخول بقية الفريق.</p></div><div className="table-scroll"><table><thead><tr><th>المستخدم</th><th>الدور</th><th>ملف السفير</th><th>الإجراءات</th></tr></thead><tbody>{data.members.map(m=><tr key={m.email}><td><b>{m.name}</b><small dir="ltr">{m.email}</small></td><td><span className="tag neutral">{ROLE_LABELS[m.role]}</span></td><td>{data.ambassadors.find(a=>a.id===m.ambassador_id)?.name??"—"}</td><td>{m.user_id!==real?.me.user_id&&<div className="button-row"><button className="icon-btn" aria-label={"تعديل صلاحية "+m.name} onClick={()=>setModal({type:"member",item:m})}><Pencil size={15}/></button><button className="icon-btn danger" aria-label={"إزالة صلاحية "+m.name} disabled={busy} onClick={()=>{if(window.confirm("إزالة صلاحية "+m.name+" من التطبيق؟"))quickAction({action:"removeMember",email:m.email},"تمت إزالة الصلاحية.")}}><X size={16}/></button></div>}</td></tr>)}</tbody></table>{!data.members.length&&<p className="table-note">المستخدمون الحقيقيون يظهرون في السجل الفعلي.</p>}</div></Panel>
           <Panel title="فترات الرصد" subtitle="إغلاق الفترة يحمي الإنجازات والمؤشرات والمستهدفات من التعديل." action={<button className="btn small" onClick={()=>setModal({type:"period"})}><Plus size={15}/>إضافة ربع سنة</button>}><div className="period-list">{data.periods.map(p=><div key={p.id}><span className={"stat-icon "+(p.locked?"blue":"teal")}>{p.locked?<LockKeyhole size={20}/>:<UnlockKeyhole size={20}/>}</span><section><h3>{p.label}</h3><p>{dateLabel(p.starts_on)} — {dateLabel(p.ends_on)}</p></section><span className={"tag "+(p.locked?"neutral":"green")}>{p.locked?"مغلقة":"مفتوحة"}</span><button className="btn small" disabled={busy} onClick={()=>{if(window.confirm(p.locked?"إعادة فتح الفترة للتعديل؟":"إغلاق "+p.label+" وحماية بياناتها من التعديل؟"))quickAction({action:"lock",period_id:p.id,locked:!p.locked},p.locked?"أعيد فتح الفترة.":"تم إغلاق الفترة.")}}>{p.locked?"إعادة فتح":"إغلاق الفترة"}</button></div>)}</div></Panel>
           <Panel title="سجل التغييرات" subtitle="آخر ١٠٠ عملية، مع المستخدم ووقت التنفيذ."><div className="audit-list">{data.audit.map(a=><div key={a.id}><span><Activity size={15}/></span><section><b>{a.action}</b><small>{a.actor}</small></section><time>{new Date(a.created_at).toLocaleString("ar-OM",{timeZone:"Asia/Muscat",dateStyle:"short",timeStyle:"short"})}</time></div>)}{!data.audit.length&&<p className="table-note">سيظهر هنا سجل الإضافات والتعديلات والمراجعات.</p>}</div></Panel>
         </>}

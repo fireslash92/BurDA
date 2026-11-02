@@ -1,39 +1,8 @@
-# Buraimi Digital Ambassadors — GitHub Pages demo
+# Buraimi Digital Ambassadors
+Arabic RTL performance dashboard for the Governor's Office. The static GitHub Pages entry offers an isolated in-memory demo. The office login (?office) uses Firebase Google authentication, a role-checked Cloud Function, Firestore and private evidence files in Cloud Storage.
 
-This package is a standalone demo of the Arabic performance dashboard.
-It is ready for manual upload. No server, ChatGPT account or build command is required to publish the included files.
+See [دليل تفعيل Firebase](START-HERE-AR.md) before using the office register. Publishing GitHub files does not deploy Firebase services. The Firebase web configuration is public; the backend requires verified identities and explicit membership. Analytics is not initialized.
 
-## Manual upload
+The root contains the built site. Edit src/ and public/, install the root npm dependencies, then run node build.mjs and copy dist/ to the repository root. The functions/ directory contains a standalone Node 22 backend. Its bundled service.mjs is compiled from service.ts and domain.ts using esbuild (bundle, platform=node, format=esm, external:zod and ./transaction.mjs). Run node --test backend.test.mjs inside functions/ after installing its dependencies.
 
-1. Extract Buraimi-Ambassadors-GitHub-Pages-v1.zip.
-2. Upload the extracted contents to the root of your GitHub repository. index.html must be at the root, beside assets, fonts and styles.css. Do not upload the ZIP itself or put the files inside another folder.
-3. In the repository open Settings → Pages.
-4. Select Deploy from a branch, then main and /(root), and Save.
-5. Open the published URL shown by GitHub Pages.
-
-GitHub Free supports Pages from public repositories. Pages from a private repository requires an eligible paid plan. The published demo is publicly viewable. It contains synthetic data only.
-Official instructions: https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site
-
-## What works now
-
-- Arabic RTL dashboard, ambassador profiles and period/region/organization filters.
-- Simulated achievement forms, review and approval, indicators, targets and roles.
-- CSV export and a browser print layout for saving a PDF.
-- All assets are local; no CDN or external API is required.
-- Relative paths allow the app to run under a repository subfolder.
-
-## Firebase is a later step
-
-This is DEMO-ONLY. Changes are held in memory and disappear when the page is reloaded.
-There is no real authentication, shared database or actual evidence-file upload in this package.
-The mock roles do not provide access control and must not be used for official records.
-
-When you have created the Firebase project, we will connect Firebase Authentication, Firestore and file storage, implement the permissions and deploy/test their rules.
-firebase-config.example.json is a configuration reference only. Filling it alone does not activate integration.
-Do not upload service-account private keys or real ambassador records to GitHub.
-
-## Source and rebuilding
-
-The prebuilt files are at the top level. Editable source is in src, and source assets are in public.
-To rebuild after a code change, use Node.js 22 or later, run npm install, then npm run check and npm run build. The output is in dist; copy its contents to the repository root when publishing manually.
-The previous full server-based source remains a separate archive; this package replaces it for the manual Pages publishing step.
+Designed for a small office: the transaction adapter materializes the office collections for validation in memory and persists changed rows atomically. Reads grow with the office dataset; measure Firestore reads and latency before scaling up.
