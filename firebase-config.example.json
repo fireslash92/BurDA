@@ -1,0 +1,11 @@
+{
+  "integrationStatus": "pending",
+  "firebaseConfig": {
+    "apiKey": "",
+    "authDomain": "",
+    "projectId": "",
+    "storageBucket": "",
+    "messagingSenderId": "",
+    "appId": ""
+  }
+}
