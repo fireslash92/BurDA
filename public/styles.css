@@ -110,3 +110,14 @@ button,input,select,textarea{font:inherit}button,a,input,select,textarea{-webkit
  .overview-hero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:14px}.overview-hero h2{font-size:1.06rem;margin:4px 0}.overview-hero p{font-size:.78rem}.hero-orbit{display:none}.hero-visual{height:auto;min-width:0;max-width:90px}.hero-ring{width:76px;height:76px}.hero-ring>div{width:65px;height:65px}.hero-ring strong{font-size:18px}.hero-ring span{font-size:.52rem}.hero-chip{margin-top:5px;white-space:normal;font-size:.63rem;line-height:1.45}.hero-chip svg{display:none}
 }
 @media print{.mobile-tabs{display:none!important}}
+
+/* Keep native password controls (including their AutoFill affordance) within
+   the grid column, even when WebKit changes the visible viewport. */
+.office-login{grid-template-columns:minmax(0,1fr)}
+.gateway-layout,.office-card form,.office-card label,.office-card input{min-inline-size:0;max-inline-size:100%}
+.office-card form,.office-card label{grid-template-columns:minmax(0,1fr)}
+.gateway .office-card :is(input[type=email],input[type=password]){box-sizing:border-box;inline-size:100%;font-size:max(18px,1rem);line-height:1.5}
+@media(max-width:760px),(orientation:landscape) and (max-width:940px) and (max-height:540px){
+ .gateway-layout{inline-size:100%;justify-self:center}
+ .gateway[data-credential-fit] .gateway-layout{justify-self:left;inline-size:min(100%,var(--credential-width));position:relative;left:var(--credential-offset);grid-template-columns:minmax(0,1fr)}
+}
