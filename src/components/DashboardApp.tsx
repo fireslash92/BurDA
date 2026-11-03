@@ -39,7 +39,7 @@ export default function DashboardApp() {
   useEffect(()=>{
     if(!mobileNav)return;
     const restore=document.body.style.overflow;document.body.style.overflow="hidden";
-    const drawer=menuRef.current,screen=matchMedia("(max-width:760px)");
+    const drawer=menuRef.current,screen=matchMedia("(max-width:760px), (orientation:landscape) and (max-width:940px) and (max-height:540px)");
     drawer?.querySelector<HTMLButtonElement>(".mobile-close")?.focus();
     function key(e:KeyboardEvent){
       if(e.key==="Escape"){e.preventDefault();closeMenu();return;}
