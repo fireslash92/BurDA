@@ -65,7 +65,6 @@ lucide-react/dist/esm/context.mjs:
 lucide-react/dist/esm/Icon.mjs:
 lucide-react/dist/esm/createLucideIcon.mjs:
 lucide-react/dist/esm/icons/activity.mjs:
-lucide-react/dist/esm/icons/arrow-right.mjs:
 lucide-react/dist/esm/icons/arrow-up-left.mjs:
 lucide-react/dist/esm/icons/bell.mjs:
 lucide-react/dist/esm/icons/check-check.mjs:
@@ -77,7 +76,6 @@ lucide-react/dist/esm/icons/download.mjs:
 lucide-react/dist/esm/icons/external-link.mjs:
 lucide-react/dist/esm/icons/file-chart-column.mjs:
 lucide-react/dist/esm/icons/file-text.mjs:
-lucide-react/dist/esm/icons/flask-conical.mjs:
 lucide-react/dist/esm/icons/graduation-cap.mjs:
 lucide-react/dist/esm/icons/handshake.mjs:
 lucide-react/dist/esm/icons/info.mjs:
