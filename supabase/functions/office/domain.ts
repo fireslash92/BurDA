@@ -1,6 +1,6 @@
 export type Role = "admin" | "reviewer" | "viewer" | "ambassador";
 export type Status = "draft" | "submitted" | "approved" | "returned";
-export interface Member {email:string;user_id:string|null;name:string;role:Role;ambassador_id:string|null;created_at:string}
+export interface Member {job_title?:string;email:string;user_id:string|null;name:string;role:Role;ambassador_id:string|null;created_at:string}
 export interface Ambassador {id:string;name:string;organization:string;wilaya:string;email:string;active:number;created_at:string}
 export interface Period {id:string;label:string;starts_on:string;ends_on:string;locked:number}
 export interface Indicator {id:string;period_id:string;label:string;description:string;unit:string;weight:number;default_target:number;position:number}

@@ -1,6 +1,6 @@
-import { database } from "./transaction.mjs";
-import { z } from "zod";
-import { DEFAULT_AXES, canWriteFor, canReview, quarterPeriod, type AppState, type Member, type Period, type Indicator, type Ambassador, type Achievement, type EvidenceFile, type Target, type Audit } from "./domain";
+import { database } from "./db.ts";
+import { z } from "npm:zod@3.25.76";
+import { DEFAULT_AXES, canWriteFor, canReview, quarterPeriod, type AppState, type Member, type Period, type Indicator, type Ambassador, type Achievement, type EvidenceFile, type Target, type Audit } from "./domain.ts";
 type ChatGPTUser={email:string,userId:string,displayName:string};
 
 export class AppError extends Error { constructor(message:string,public status=400){super(message)} }
@@ -16,16 +16,12 @@ export function logStatement(actor:string,action:string,entity:string,detail:unk
   return database().prepare("INSERT INTO audit (id,actor,action,entity_id,detail,created_at) VALUES (?,?,?,?,?,?)").bind(id(),actor,action,entity,JSON.stringify(detail),now());
 }
 export async function getMember(user:ChatGPTUser):Promise<Member> {
-  const db=database(),mail=user.email.toLowerCase(),time=now();
-  if(user.userId === process.env.BURDA_OWNER_UID && process.env.BURDA_OWNER_UID) {
-    await db.batch([db.prepare("INSERT OR IGNORE INTO settings (key,value) VALUES ('owner_user_id',?)").bind(user.userId),
-      db.prepare("INSERT OR IGNORE INTO members (email,user_id,name,role,ambassador_id,created_at) VALUES (?,?,?,'admin',NULL,?)").bind(mail,user.userId,user.displayName,time)]);
-  }
-  const member=await db.prepare("SELECT * FROM members WHERE user_id=? OR email=? LIMIT 1").bind(user.userId,mail).first<Member>();
-  if(!member)throw new AppError("ليس لحسابك صلاحية دخول. اطلب من مدير المنصة إضافة بريدك إلى المستخدمين.",403);
-  if(member.user_id&&member.user_id!==user.userId)throw new AppError("هوية الحساب لا تطابق المستخدم المسجل.",403);
-  if(!member.user_id)await db.prepare("UPDATE members SET user_id=? WHERE email=? AND user_id IS NULL").bind(user.userId,mail).run();
-  member.user_id=user.userId;
+  const db=database();
+  // This address is provisioned privately by the project owner and consumed once.
+  await db.prepare("insert into public.users(id,name,job_title,role) select ?,name,job_title,'admin' from initial_admin where lower(email)=? on conflict(id) do nothing").bind(user.userId,user.email.toLowerCase()).run();
+  await db.prepare("delete from initial_admin where lower(email)=?").bind(user.email.toLowerCase()).run();
+  const member=await db.prepare("select * from members where user_id=? and active").bind(user.userId).first<Member>();
+  if(!member)throw new AppError("لا يوجد ملف مستخدم نشط لهذا الحساب. تواصل مع مدير المكتب.",403);
   await initialize();
   return member;
 }
@@ -157,19 +153,18 @@ export async function mutate(me:Member,input:unknown):Promise<{id?:string}> {
   }
   if(base.action==="member") {
     admin(me);
-    const v=z.object({email,name:label,role:z.enum(["admin","reviewer","viewer","ambassador"]),ambassador_id:key.nullable()}).parse(input),owner=await db.prepare("SELECT value FROM settings WHERE key='owner_user_id'").first<{value:string}>(),existing=await db.prepare("SELECT * FROM members WHERE email=?").bind(v.email).first<Member>();
-    if(existing?.user_id===owner?.value)throw new AppError("لا يمكن تغيير صلاحية مالك المنصة.");
-    if(v.role==="ambassador"&&(!v.ambassador_id||!await db.prepare("SELECT id FROM ambassadors WHERE id=? AND active=1").bind(v.ambassador_id).first()))throw new AppError("اربط حساب السفير بملف سفير نشط.");
-    await db.batch([db.prepare("INSERT INTO members (email,name,role,ambassador_id,created_at) VALUES (?,?,?,?,?) ON CONFLICT(email) DO UPDATE SET name=excluded.name,role=excluded.role,ambassador_id=excluded.ambassador_id").bind(v.email,v.name,v.role,v.role==="ambassador"?v.ambassador_id:null,now()),logStatement(me.email,"تحديث صلاحية مستخدم",v.email,{before:existing,after:v})]);
+    const v=z.object({email,name:label,job_title:z.string().trim().max(160).default(""),role:z.enum(["admin","reviewer","viewer","ambassador"]),ambassador_id:key.nullable()}).parse(input);
+    const account=await db.prepare("select id from auth.users where lower(email)=?").bind(v.email).first();
+    if(!account)throw new AppError("أنشئ حساب الدخول في Supabase Authentication أولاً.");
+    if(account.id===me.user_id)throw new AppError("لا يمكنك تعديل صلاحيات حسابك.");
+    if(v.role==="ambassador"&&(!v.ambassador_id||!await db.prepare("select id from ambassadors where id=? and active=1").bind(v.ambassador_id).first()))throw new AppError("اختر ملف سفير نشط.");
+    await db.batch([db.prepare("insert into public.users(id,name,job_title,role,ambassador_id) values(?,?,?,?,?) on conflict(id) do update set name=excluded.name,job_title=excluded.job_title,role=excluded.role,ambassador_id=excluded.ambassador_id,active=true").bind(account.id,v.name,v.job_title,v.role,v.role==="ambassador"?v.ambassador_id:null),logStatement(me.email,"تحديث صلاحية مستخدم",account.id,v)]);
     return {};
   }
-  if(base.action==="removeMember") {
-    admin(me);
-    const v=z.object({email}).parse(input),old=await db.prepare("SELECT * FROM members WHERE email=?").bind(v.email).first<Member>(),owner=await db.prepare("SELECT value FROM settings WHERE key='owner_user_id'").first<{value:string}>();
-    if(!old)throw new AppError("المستخدم غير موجود.");
-    if(old.user_id===owner?.value)throw new AppError("لا يمكن إزالة مالك المنصة.");
-    await db.batch([db.prepare("DELETE FROM members WHERE email=?").bind(v.email),logStatement(me.email,"إزالة صلاحية مستخدم",v.email,old)]);
-    return {};
+  if(base.action==="removeMember"){
+    admin(me);const v=z.object({email}).parse(input),old=await db.prepare("select * from members where email=?").bind(v.email).first<Member>();
+    if(!old||old.user_id===me.user_id)throw new AppError("لا يمكن إزالة هذا الحساب.");
+    await db.batch([db.prepare("delete from public.users where id=?").bind(old.user_id),logStatement(me.email,"إزالة صلاحية مستخدم",old.user_id,old)]);return {};
   }
   throw new AppError("العملية غير معروفة.");
 }

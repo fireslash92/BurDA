@@ -1,0 +1,12 @@
+import {createClient} from 'https://esm.sh/@supabase/supabase-js@2.95.3';
+export const endpoint='https://opveixqksyrgxlskjrqx.supabase.co';
+export const publicKey='sb_publishable_HEvC5ejeD_Y1r9WGR5iB2g_FF7KIsOX';
+const client=createClient(endpoint,publicKey);
+const check=r=>{if(r.error)throw r.error;return r.data;};
+const wrap=s=>s?.user?{uid:s.user.id,email:s.user.email,emailVerified:!!s.user.email_confirmed_at,getIdToken:async()=>check(await client.auth.getSession()).session?.access_token}:null;
+export const login=async(email,password)=>check(await client.auth.signInWithPassword({email,password}));
+export const watch=fn=>{const {data}=client.auth.onAuthStateChange((event,s)=>fn(wrap(s),event));return ()=>data.subscription.unsubscribe();};
+export const reset=async email=>check(await client.auth.resetPasswordForEmail(email,{redirectTo:new URL('./?recover=1',location.href).href}));
+export const setPassword=async password=>check(await client.auth.updateUser({password}));
+export const logout=async()=>check(await client.auth.signOut());
+export const user=async()=>wrap(check(await client.auth.getSession()).session);

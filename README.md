@@ -1,8 +1,6 @@
-# Buraimi Digital Ambassadors
-Arabic RTL performance dashboard for the Governor's Office. The root opens a staff login. The dashboard requires a verified Firebase email/password account and office membership. It uses a role-checked Cloud Function, Firestore and private evidence files in Cloud Storage.
+# BurDA | Buraimi Digital Ambassadors
+Arabic staff dashboard for the Buraimi Governorate Office. Supabase Auth handles email/password; public.users stores each person's name, job title and role under their Auth UUID. Office records are relational PostgreSQL tables in the private burda schema. The office Edge Function verifies the user's token, reads their current profile and applies the office workflow; evidence uses a private Storage bucket.
 
-See [دليل تفعيل Firebase](START-HERE-AR.md) before using the office register. Publishing GitHub files does not deploy Firebase services. The Firebase web configuration is public; the backend requires verified identities and explicit membership. Analytics is not initialized.
+[دليل التشغيل](START-HERE-AR.md) · [English setup](START-HERE-EN.md)
 
-The root contains the built site. Edit src/ and public/, install the root npm dependencies, then run node build.mjs and copy dist/ to the repository root. The functions/ directory contains a standalone Node 22 backend. Its bundled service.mjs is compiled from service.ts and domain.ts using esbuild (bundle, platform=node, format=esm, external:zod and ./transaction.mjs). Run node --test backend.test.mjs inside functions/ after installing its dependencies.
-
-Designed for a small office: the transaction adapter materializes the office collections for validation in memory and persists changed rows atomically. Reads grow with the office dataset; measure Firestore reads and latency before scaling up.
+The repository root is the built GitHub Pages site. To rebuild, install root npm dependencies, run node build.mjs and copy dist/ to the repository root. Database and function source live in supabase/.

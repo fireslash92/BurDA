@@ -1,0 +1,4 @@
+project_id = "BurDA"
+[functions.office]
+# The handler validates the access token using Auth.getUser on every request.
+verify_jwt = false
