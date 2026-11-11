@@ -119,5 +119,53 @@ button,input,select,textarea{font:inherit}button,a,input,select,textarea{-webkit
 .gateway .office-card :is(input[type=email],input[type=password]){box-sizing:border-box;inline-size:100%;font-size:max(18px,1rem);line-height:1.5}
 @media(max-width:760px),(orientation:landscape) and (max-width:940px) and (max-height:540px){
  .gateway-layout{inline-size:100%;justify-self:center}
- .gateway[data-credential-fit] .gateway-layout{justify-self:left;inline-size:min(100%,var(--credential-width));position:relative;left:var(--credential-offset);grid-template-columns:minmax(0,1fr)}
+
+}
+
+/* Stable mobile app layout: shrink content, never resize the page on AutoFill. */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;scroll-padding-block-start:80px}
+body,#root{min-inline-size:0}
+.app-shell,.workspace,.gateway,.gateway-layout{max-inline-size:100%;min-inline-size:0}
+:where(.panel-head,.topbar,.ranking-row,.profile-header,.record-card,.file-list)>*{min-inline-size:0}
+:where(.panel,.office-card,.modal) :is(p,h1,h2,h3,b,small,a){overflow-wrap:anywhere}
+input,select,textarea{max-inline-size:100%}
+@media screen and (max-width:760px),screen and (orientation:landscape) and (max-width:940px) and (max-height:540px){
+ .topbar{position:sticky;top:0;z-index:30;background:#fff;border-bottom:1px solid #dbe1ef;min-height:60px}
+ .main-content{gap:16px;padding-top:18px}
+ .page-heading .button-row{display:flex;max-width:100%;justify-content:stretch;margin:4px 0 0}
+ .page-heading .button-row .btn{flex:1;white-space:normal}
+ .btn,.text-btn{white-space:normal;text-align:center;max-inline-size:100%}
+ .workspace .mobile-tabs{min-height:64px;box-shadow:0 -4px 24px #3348790d}
+ .mobile-tabs button{min-height:52px;gap:4px;font-size:.78rem}
+ .mobile-tabs button[aria-current]{box-shadow:inset 0 3px #5169b1}
+ .keyboard-visible .workspace .mobile-tabs{display:none}
+ .keyboard-visible .topbar{position:static}
+ .keyboard-visible .toast{bottom:12px}
+ .sidebar.open{max-height:calc(100dvh - 24px);transition:none}
+ .filter-bar{border-radius:16px;box-shadow:0 3px 12px #33487905}
+ .filter-bar .period-filter{grid-column:1/-1}
+ .filter-bar .organization-filter{max-width:100%}
+ .filter-end{grid-column:1/-1;border-top:1px solid var(--border);padding-top:6px}
+ .stat-card{border-radius:16px;align-content:start;box-shadow:0 3px 12px #33487905}
+ .stat-card>div{min-width:0}.stat-card strong{font-size:clamp(22px,6vw,28px)}
+ .panel{border-radius:18px;box-shadow:0 3px 12px #33487905}
+ .panel-head>div{flex:1 1 150px}.panel-head .search-box{flex:1 1 100%;width:100%}
+ .search-box input{width:100%;min-width:0}
+ .ranking-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px}
+ .ranking-number{display:none}.ranking-name{width:auto;max-width:none;font-size:.82rem}
+ .ranking-name small{font-size:.72rem}.ranking-track{grid-column:2;grid-row:2;width:100%}
+ .ranking-row>.score-value{grid-column:3;grid-row:1 / 3;font-size:1rem}
+ .ranking-row>.avatar{grid-row:1 / 3}
+ .target-pills span{max-width:100%;white-space:normal}.target-pills b{flex-shrink:0}
+ .record-meta>span{min-width:0;overflow-wrap:anywhere}.tag{max-width:100%;white-space:normal}
+ .table-scroll td>*{min-width:0;max-width:100%}
+ .modal,.modal.wide{border-radius:20px;width:calc(100% - 16px);margin-inline:auto}
+ .modal-header{position:sticky;top:0;background:white;z-index:2;border-bottom:1px solid var(--border)}
+ .modal-header h2{min-width:0;overflow-wrap:anywhere}.modal-header .icon-btn{flex-shrink:0}
+ .modal input,.modal textarea,.office-card input{scroll-margin-block:80px}
+ .office-login{padding-inline:max(14px,env(safe-area-inset-left)) max(14px,env(safe-area-inset-right))}
+ .gateway .office-card{padding:24px 20px}.gateway-intro{padding:22px 20px}
+ .office-card input{border-radius:12px;min-height:52px}.office-card .btn{min-height:50px;border-radius:12px;font-size:.95rem}
+ .office-card h1{font-size:1.5rem}.office-card p{font-size:.92rem}
+ .app-footer{flex-wrap:wrap;font-size:.72rem}.app-footer>span:last-child{max-width:none;text-align:start}
 }

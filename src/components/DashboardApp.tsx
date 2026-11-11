@@ -109,7 +109,7 @@ export default function DashboardApp() {
     const url=URL.createObjectURL(new Blob([makeCsv(rows)],{type:"text/csv;charset=utf-8;"})),anchor=document.createElement("a");
     anchor.href=url;anchor.download=(demo?"demo-":"")+"buraimi-"+period.id+(detail?"-achievements":"-performance")+".csv";anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
-  function navigate(p:Page){setPage(p);setMobileNav(false);setStatus("");setQuery("");requestAnimationFrame(()=>headingRef.current?.focus())}
+  function navigate(p:Page){setPage(p);setMobileNav(false);setStatus("");setQuery("");requestAnimationFrame(()=>{window.scrollTo({top:0,left:0,behavior:"instant"});headingRef.current?.focus({preventScroll:true})})}
   if(loading||!data)return <main className="loading-state"><span className="brand-symbol"><Network size={30}/></span><h1>{error?"تعذر فتح المنصة":"سفراء"}</h1><p>{error||"جارٍ تجهيز لوحة المتابعة..."}</p>{error?<div className="button-row"><button className="btn primary" onClick={()=>{setError("");setLoading(true);reload().catch(e=>setError(e.message)).finally(()=>setLoading(false))}}><RefreshCw size={16}/>إعادة المحاولة</button><a className="btn" href="?office" onClick={async e=>{e.preventDefault();await (await auth()).logout();location.assign("?office")}}>تغيير الحساب</a></div>:<div className="loading-bar"/>}</main>;
   const organizations=Array.from(new Set(data.ambassadors.map(a=>a.organization)));
   const navItems:{id:Page;title:string;icon:typeof Users;badge?:number}[]=[
