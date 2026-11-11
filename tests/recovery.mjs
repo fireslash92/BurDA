@@ -1,0 +1,24 @@
+import {build} from 'esbuild';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+await build({stdin:{contents:`import React from 'react';import {renderToStaticMarkup} from 'react-dom/server';import Recovery,{passwordError,recoveryError} from './src/components/PasswordRecovery';export {passwordError,recoveryError};export function render(props){return renderToStaticMarkup(React.createElement(Recovery,{onBack:()=>{},...props}))}`,resolveDir:process.cwd(),loader:'tsx'},outfile:'tests/.recovery-test.mjs',bundle:true,platform:'node',format:'esm',jsx:'automatic',packages:'external'});
+const {passwordError,recoveryError,render}=await import('./.recovery-test.mjs');
+assert.match(passwordError('short','short'),/8/);
+assert.match(passwordError('example-long','different-long'),/غير متطابقتين/);
+assert.equal(passwordError('example-long','example-long'),'');
+assert.match(recoveryError({code:'same_password'}),/مختلفة/);
+assert.match(recoveryError({code:'otp_expired'}),/رابطًا جديدًا/);
+assert.match(render({user:null,ready:false,invalid:false}),/جارٍ التحقق/);
+const valid=render({user:{uid:'test'},ready:true,invalid:false});
+assert.match(valid,/تأكيد كلمة المرور/);assert.match(valid,/إظهار كلمة المرور/);assert.match(valid,/autocomplete="new-password"/i);
+const expired=render({user:{uid:'existing-session'},ready:true,invalid:true});
+assert.match(expired,/إرسال رابط جديد/);assert.doesNotMatch(expired,/autocomplete="new-password"/i);
+assert.match(render({user:null,ready:true,invalid:false}),/البريد الإلكتروني/);
+// Validate the actual client sends the canonical production redirect, even on a local origin.
+const calls=[];globalThis.__recoveryMock={auth:{resetPasswordForEmail:async(...args)=>{calls.push(args);return {data:{}}},updateUser:async()=>({error:{code:'weak_password'}})}};
+const source=(await fs.readFile('public/supabase-client.js','utf8')).replace(/^import .*;\n/,'const createClient=()=>globalThis.__recoveryMock;\n');
+const client=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+await client.reset('test@example.invalid');assert.equal(calls[0][1].redirectTo,'https://fireslash92.github.io/BurDA/?recover=1');
+await assert.rejects(client.setPassword('test'),e=>e.code==='weak_password');
+delete globalThis.__recoveryMock;await fs.rm('tests/.recovery-test.mjs');
+console.log('Recovery validation, expired-link guard, accessible form, redirect and SDK-error checks passed.');
