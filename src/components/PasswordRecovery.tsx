@@ -10,7 +10,8 @@ export function recoveryError(error:unknown){
  const code=(error as {code?:string})?.code;
  if(code==="same_password")return "اختر كلمة مرور مختلفة عن كلمة المرور الحالية.";
  if(code==="weak_password")return "كلمة المرور ضعيفة. استخدم كلمة أطول تجمع أحرفًا وأرقامًا ورموزًا.";
- if(code==="over_request_rate_limit"||code==="over_email_send_rate_limit")return "طلبات كثيرة خلال وقت قصير. انتظر قليلًا ثم حاول مجددًا.";
+ if(code==="over_email_send_rate_limit")return "بلغت خدمة البريد الحد المسموح لإرسال الرسائل مؤقتًا. حاول لاحقًا، وتواصل مع مدير المنصة إذا استمرت المشكلة.";
+ if(code==="over_request_rate_limit")return "طلبات كثيرة خلال وقت قصير. انتظر قليلًا ثم حاول مجددًا.";
  if(code==="otp_expired"||code==="session_not_found"||code==="refresh_token_not_found")return "انتهت صلاحية جلسة الاستعادة. ارجع واطلب رابطًا جديدًا.";
  return "تعذر إكمال الطلب. تحقق من اتصال الإنترنت وحاول مرة أخرى.";
 }

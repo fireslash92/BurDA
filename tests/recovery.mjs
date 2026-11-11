@@ -7,6 +7,7 @@ assert.match(passwordError('short','short'),/8/);
 assert.match(passwordError('example-long','different-long'),/غير متطابقتين/);
 assert.equal(passwordError('example-long','example-long'),'');
 assert.match(recoveryError({code:'same_password'}),/مختلفة/);
+assert.match(recoveryError({code:'over_email_send_rate_limit'}),/خدمة البريد/);
 assert.match(recoveryError({code:'otp_expired'}),/رابطًا جديدًا/);
 assert.match(render({user:null,ready:false,invalid:false}),/جارٍ التحقق/);
 const valid=render({user:{uid:'test'},ready:true,invalid:false});
