@@ -17,6 +17,16 @@ const titles:Record<Page,{title:string;description:string}>={
   reports:{title:"التقارير",description:"تقرير موحد يساعد مكتب المحافظ على المتابعة واتخاذ القرار."},
   settings:{title:"إدارة المنصة",description:"المستخدمون والصلاحيات وفترات الرصد وسجل التغييرات."},
 };
+export function pageFromHash(hash:string):Page|null {
+  if(!hash.startsWith("#/"))return null;
+  const page=hash.slice(2);
+  return Object.hasOwn(titles,page)?page as Page:"dashboard";
+}
+export function canOpenPage(page:Page,role:Member["role"]){
+  if(page==="settings")return canManage(role);
+  if(page==="review")return canReview(role);
+  return true;
+}
 const axisIcons=[GraduationCap,Lightbulb,LifeBuoy,FileText,Handshake];
 const nf=new Intl.NumberFormat("ar-OM",{maximumFractionDigits:1});
 export function number(v:number){return nf.format(v)}
@@ -30,7 +40,7 @@ function Empty({title,description,children}:{title:string;description:string;chi
 export default function DashboardApp() {
   const [real,setReal]=useState<AppState|null>(null);
   const demo=false;
-  const [page,setPage]=useState<Page>("dashboard"),[periodId,setPeriodId]=useState("2026-Q4");
+  const [page,setPage]=useState<Page>(()=>pageFromHash(location.hash)??"dashboard"),[periodId,setPeriodId]=useState("2026-Q4");
   const [wilaya,setWilaya]=useState(""),[organization,setOrganization]=useState(""),[query,setQuery]=useState(""),[status,setStatus]=useState(""),[showArchived,setShowArchived]=useState(false);
   const [modal,setModal]=useState<ModalValue|null>(null),[mobileNav,setMobileNav]=useState(false),[toast,setToast]=useState<{message:string;error?:boolean}|null>(null);
   const [error,setError]=useState(""),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
@@ -109,8 +119,27 @@ export default function DashboardApp() {
     const url=URL.createObjectURL(new Blob([makeCsv(rows)],{type:"text/csv;charset=utf-8;"})),anchor=document.createElement("a");
     anchor.href=url;anchor.download=(demo?"demo-":"")+"buraimi-"+period.id+(detail?"-achievements":"-performance")+".csv";anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
-  function navigate(p:Page){setPage(p);setMobileNav(false);setStatus("");setQuery("");requestAnimationFrame(()=>headingRef.current?.focus())}
+  function showPage(p:Page){
+    setPage(p);setMobileNav(false);setModal(null);setStatus("");setQuery("");
+    requestAnimationFrame(()=>headingRef.current?.focus());
+  }
+  useEffect(()=>{
+    function syncPage(){
+      if(location.hash==="#office-main")return;
+      showPage(pageFromHash(location.hash)??"dashboard");
+    }
+    window.addEventListener("hashchange",syncPage);
+    return()=>window.removeEventListener("hashchange",syncPage);
+  },[]);
+  function navigate(p:Page){
+    if(location.hash!==`#/${p}`)location.hash=`/${p}`;
+    else showPage(p);
+  }
   if(loading||!data)return <main className="loading-state"><span className="brand-symbol"><Network size={30}/></span><h1>{error?"تعذر فتح المنصة":"سفراء"}</h1><p>{error||"جارٍ تجهيز لوحة المتابعة..."}</p>{error?<div className="button-row"><button className="btn primary" onClick={()=>{setError("");setLoading(true);reload().catch(e=>setError(e.message)).finally(()=>setLoading(false))}}><RefreshCw size={16}/>إعادة المحاولة</button><a className="btn" href="?office" onClick={async e=>{e.preventDefault();await (await auth()).logout();location.assign("?office")}}>تغيير الحساب</a></div>:<div className="loading-bar"/>}</main>;
+  if(!canOpenPage(page,data.me.role))return <main className="loading-state">
+    <h1>لا تملك صلاحية فتح هذا القسم</h1>
+    <a className="btn primary" href="#/dashboard">العودة إلى لوحة المتابعة</a>
+  </main>;
   const organizations=Array.from(new Set(data.ambassadors.map(a=>a.organization)));
   const navItems:{id:Page;title:string;icon:typeof Users;badge?:number}[]=[
     {id:"dashboard",title:"لوحة المتابعة",icon:LayoutDashboard},{id:"ambassadors",title:"السفراء",icon:Users},
@@ -122,7 +151,7 @@ export default function DashboardApp() {
   const directoryTable=(detailed=false)=><div className="table-scroll" role="region" aria-label="جدول بيانات، يمكن تمريره أفقيًا" tabIndex={0}><table><thead><tr><th>السفير / الجهة</th><th>الولاية</th>{detailed&&axes.map(i=><th key={i.id}>{i.label}<small>منجز / مستهدف</small></th>)}<th>تحقق المستهدفات</th><th>حالة الأداء</th><th className="no-print"/></tr></thead><tbody>{ranked.map((a,i)=><tr key={a.id}><td><div className="person-cell"><Initials name={a.name} index={i}/><div><button className="name-link" onClick={()=>setModal({type:"profile",item:a})}>{a.name}</button><small>{a.organization}{!a.active?" • مؤرشف":""}</small></div></div></td><td data-label="الولاية">{a.wilaya}</td>{detailed&&a.result.parts.map(p=><td key={p.axis.id} data-label={p.axis.label}><b>{number(p.actual)}</b><span className="muted"> / {number(p.target)}</span></td>)}<td data-label="تحقق المستهدفات"><div className="score-cell"><Score value={a.result.score}/><div className="mini-track"><i style={{width:(a.result.score??0)+"%"}}/></div></div></td><td data-label="حالة الأداء"><span className={"tag "+((a.result.score??0)>=65?"green":(a.result.score??0)>=40?"amber":"neutral")}>{scoreLabel(a.result.score)}</span></td><td className="no-print" data-label="ملف السفير"><button className="icon-btn" aria-label={"عرض ملف "+a.name} onClick={()=>setModal({type:"profile",item:a})}><ChevronLeft size={18}/></button></td></tr>)}</tbody></table>{!ranked.length&&<Empty title="لا توجد نتائج" description="أضف السفراء أو غيّر معايير البحث."/>}</div>;
   const recordCards=(items:Achievement[])=><div className="record-list">{items.map(a=>{const person=data.ambassadors.find(x=>x.id===a.ambassador_id),axis=axes.find(i=>i.id===a.indicator_id),files=data.files.filter(f=>f.achievement_id===a.id);return <article className="record-card" key={a.id}><div className="record-icon"><ClipboardList size={21}/></div><div className="record-content"><div className="record-title"><h3>{a.title}</h3><StatusTag value={a.status}/></div><p>{person?.name} <span>•</span> {axis?.label}</p><div className="record-meta"><span>{dateLabel(a.date)}</span><span>{number(a.quantity)} {axis?.unit}</span>{a.beneficiaries>0&&<span>{number(a.beneficiaries)} مشاركة مستفيدة</span>}<span><Paperclip size={12}/>{files.length||a.evidence_url?number(files.length+(a.evidence_url?1:0))+" دليل":"لا توجد أدلة"}</span></div>{a.review_comment&&<div className="review-note">ملاحظة المراجع: {a.review_comment}</div>}</div><button className="btn small" onClick={()=>setModal({type:"record",item:a})}>{page==="review"?"مراجعة":"التفاصيل"}<ArrowUpLeft size={15}/></button></article>})}{!items.length&&<Empty title={page==="review"?"لا توجد إنجازات بانتظار المراجعة":"لم تسجل إنجازات بعد"} description={page==="review"?"ستظهر هنا الإنجازات التي يرسلها السفراء لهذه الفترة.":"ابدأ بإضافة إنجاز وربطه بأحد مؤشرات الأداء."}/>}</div>;
   return <>
-    <a className="skip-link" href="#office-main">تخطَّ إلى المحتوى</a><div className="app-shell">
+    <a className="skip-link" href="#office-main" onClick={e=>{e.preventDefault();document.getElementById("office-main")?.focus()}}>تخطَّ إلى المحتوى</a><div className="app-shell">
       {mobileNav&&<button tabIndex={-1} className="nav-backdrop" aria-label="إغلاق القائمة" onClick={closeMenu}/>}
       <aside ref={menuRef} id="office-navigation" role={mobileNav?"dialog":undefined} aria-modal={mobileNav||undefined} aria-label="تنقل المنصة" className={"sidebar "+(mobileNav?"open":"")}><a className="brand" href="./" aria-label="سفراء"><span className="brand-symbol"><Network size={25}/></span><div><b>سفراء</b><small>التحول الرقمي • البريمي</small></div></a><button className="icon-btn mobile-close" aria-label="إغلاق القائمة" onClick={closeMenu}><X/></button><div className="sidebar-label">أقسام المنصة</div><nav aria-label="القائمة الرئيسية">{navItems.map(({id,title,icon:Icon,badge})=><button key={id} onClick={()=>navigate(id)} className={page===id?"active":""} aria-current={page===id?"page":undefined}><Icon size={19}/><span>{title}</span>{!!badge&&<b className="nav-badge">{number(badge)}</b>}</button>)}</nav><div className="sidebar-note"><ShieldCheck size={23}/><b>إنجاز موثق. أثر واضح.</b><p>احتساب المؤشرات من السجلات المعتمدة فقط.</p><button onClick={()=>navigate("indicators")}>منهجية القياس<ChevronLeft size={14}/></button></div><div className="sidebar-bottom"><span className="live-dot"/>سجل مكتب المحافظ</div></aside>
       <div className="workspace" inert={mobileNav}><header className="topbar"><div className="topbar-start"><button className="icon-btn mobile-toggle" ref={triggerRef} aria-controls="office-navigation" aria-expanded={mobileNav} aria-label="فتح القائمة" onClick={e=>openMenu(e.currentTarget)}><Menu/></button><span>محافظة البريمي</span><ChevronLeft size={14}/><b>مكتب المحافظ</b></div><div className="topbar-actions">{reviewing&&<button className="icon-btn notification" aria-label={"مراجعات معلقة "+pending.length} onClick={()=>navigate("review")}><Bell size={20}/>{pending.length>0&&<i/>}</button>}<div className="user-info"><span className="user-avatar">{(data.me.name)[0]}</span><div><strong>{data.me.name}</strong>{data.me.job_title&&<small>{data.me.job_title}</small>}<small>{ROLE_LABELS[data.me.role]}{demo?" • تجربة":""}</small></div></div><a className="icon-btn" href="?office" onClick={async e=>{e.preventDefault();await (await auth()).logout();location.assign("?office")}} aria-label="تسجيل الخروج"><LogOut size={17}/></a></div></header>
