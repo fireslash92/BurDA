@@ -1,6 +1,6 @@
 export type User={emailVerified:boolean;email:string|null;uid:string;displayName:string|null;getIdToken:()=>Promise<string>};
 type Auth={endpoint:string;publicKey:string;setPassword:(p:string)=>Promise<void>;watch:(fn:(u:User|null,event:string)=>void)=>()=>void;verify:()=>Promise<void>;reset:(email:string)=>Promise<void>;refresh:()=>Promise<User|null>;login:(email:string,password:string)=>Promise<{user:User}>;logout:()=>Promise<void>;user:()=>Promise<User|null>};
-export const auth=():Promise<Auth>=>import(new URL('supabase-client.js?v=recovery-5',document.baseURI).href);
+export const auth=():Promise<Auth>=>import(new URL('supabase-client.js?v=protected-routes-1',document.baseURI).href);
 export async function office(op:string,payload:unknown={}){
  const u=await (await auth()).user();if(!u)throw new Error('سجّل الدخول أولاً.');
  const a=await auth();const res=await fetch(a.endpoint+"/functions/v1/office",{method:'POST',headers:{apikey:a.publicKey,Authorization:'Bearer '+await u.getIdToken(),'Content-Type':'application/json'},body:JSON.stringify({op,payload})});

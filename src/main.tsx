@@ -16,11 +16,21 @@ function Entry(){
  const [u,setUser]=React.useState<User|null>(null),[verified,setVerified]=React.useState(false),[ready,setReady]=React.useState(false),[msg,setMsg]=React.useState(""),[busy,setBusy]=React.useState(false);
  const [email,setEmail]=React.useState(""),[password,setPassword]=React.useState(""),[reset,setReset]=React.useState(false);
  const [recovery,setRecovery]=React.useState(recoveryRequested);
+ const [recoveryUserId,setRecoveryUserId]=React.useState<string|null>(null);
  const loginTransition=React.useRef(false);
- function session(v:User|null,event=""){if(loginTransition.current&&event==="SIGNED_IN"&&v?.emailVerified)return;if(event==="PASSWORD_RECOVERY"){setRecovery(true);history.replaceState(null,"",new URL("./?recover=1",location.href));}setUser(v);setVerified(!!v?.emailVerified);setPassword("");setReady(true);setMsg("");}
+ function session(v:User|null,event=""){
+  if(loginTransition.current&&event==="SIGNED_IN"&&v?.emailVerified)return;
+  if(event==="PASSWORD_RECOVERY"&&v){
+   setRecovery(true);
+   setRecoveryUserId(v.uid);
+   history.replaceState(null,"",new URL("./?recover=1",location.href));
+  }
+  if(event==="SIGNED_OUT")setRecoveryUserId(null);
+  setUser(v);setVerified(!!v?.emailVerified);setPassword("");setReady(true);setMsg("");
+ }
  React.useEffect(()=>{if(recoveryInvalid)history.replaceState(null,"",new URL("./?recover=1",location.href));let active=true,stop:(()=>void)|undefined;auth().then(a=>{if(active)stop=a.watch(session)}).catch(()=>{setReady(true);setMsg("تعذر الاتصال بخدمة الدخول. تحقق من الشبكة ثم حدّث الصفحة.")});return()=>{active=false;stop?.()}},[]);
  async function act(fn:()=>Promise<void>){setBusy(true);setMsg("");try{await fn()}catch(e){const code=(e as {code?:string}).code;setMsg(code==="over_request_rate_limit"?"محاولات كثيرة. حاول لاحقًا.":code==="auth/network-request-failed"?"تعذر الاتصال. تحقق من الشبكة.":code==="email_not_confirmed"?"يجب تأكيد البريد الإلكتروني قبل الدخول.":"تعذر إكمال الطلب. تحقق من بيانات الدخول وحاول مرة أخرى.")}finally{setBusy(false)}}
- if(recovery)return <PasswordRecovery user={u} ready={ready} invalid={recoveryInvalid} onBack={()=>{history.replaceState(null,"",new URL('./',location.href));setRecovery(false);setMsg("")}}/>;
+ if(recovery)return <PasswordRecovery user={u?.uid===recoveryUserId?u:null} ready={ready} invalid={recoveryInvalid} onBack={()=>{history.replaceState(null,"",new URL('./',location.href));setRecovery(false);setMsg("")}}/>;
  if(u&&verified)return <DashboardApp key={u.uid}/>;
  return <main className="office-login gateway"><div className="gateway-layout"><aside className="gateway-intro"><span className="intro-label">محافظة البريمي · مكتب المحافظ</span><h2>سفراء <br/>التحول الرقمي</h2><p>منصة متابعة أداء السفراء وتوثيق إنجازاتهم.</p><span className="intro-foot">سجل مؤشرات الأداء</span></aside><section className="office-card"><div className="office-brand"><img src="./favicon.svg" alt=""/><span>محافظة البريمي<br/><strong>مكتب المحافظ</strong></span></div><p className="eyebrow">سفراء التحول الرقمي</p><h1>{u?"تأكيد البريد الإلكتروني":reset?"استعادة كلمة المرور":"تسجيل الدخول"}</h1>
  <p>{u?"أكّد بريدك قبل فتح سجل المكتب.":reset?"أدخل بريد حسابك لتصلك تعليمات استعادة كلمة المرور.":"ادخل بحسابك المخصص لمتابعة مؤشرات أداء السفراء."}</p>
